@@ -214,7 +214,7 @@ def visualize_feedback(feedback=None, feedback_file=None, tag='feedback', save_d
     """
     assert feedback is not None and isinstance(feedback, dict) or feedback_file is not None
     if feedback_file is not None:
-        with open(feedback_file, 'r') as file:
+        with open(save_dir + '/' + feedback_file, 'r') as file:
             feedback = json.load(file)
     opoch_x = list(feedback.keys())
     accuracy = []
@@ -232,7 +232,7 @@ def visualize_feedback(feedback=None, feedback_file=None, tag='feedback', save_d
     for epoch in opoch_x:
         fd = feedback[epoch]
         if fd[2] != last_lr:
-            group_indexes.append([0, 1] if group_indexes == [] else [group_indexes[-1][1] + 1, group_indexes[-1][1] + 1])
+            group_indexes.append([0, 1] if group_indexes == [] else [group_indexes[-1][1] - 1, group_indexes[-1][1] + 1])
             last_lr = fd[2]
         else:
             group_indexes[-1][1] += 1
@@ -243,7 +243,7 @@ def visualize_feedback(feedback=None, feedback_file=None, tag='feedback', save_d
     for group_index in group_indexes:
         x = np.array(opoch_x, dtype=np.int32)[group_index[0]:group_index[1]]
         loss_y = np.array(loss)[group_index[0]:group_index[1]]
-        ax1.plot(x, loss_y, label='loss(lr:%s)' % lr[group_index[0]], linewidth=2)
+        ax1.plot(x, loss_y, label='loss(lr:%s)' % lr[group_index[-1] - 1], linewidth=2)
     x = np.array(opoch_x, dtype=np.int32)
     accuracy_y = np.array(accuracy) * 100
     ax2 = ax1.twinx()
