@@ -30,16 +30,16 @@ def get_modified_pretrained_model(num_classes=10):
 
 alexnet = get_modified_pretrained_model()
 
-# framework.try_load_weights(alexnet, 'big_batch.pkl')
+framework.try_load_weights(alexnet, 'big_batch.pkl')
 
-mul_alexnet = nn.DataParallel(alexnet, device_ids=[0, 1, 2, 3])
+net = nn.DataParallel(alexnet, device_ids=[0, 1, 2, 3])
 train_part = alexnet.classifier
-framework.train_schedule('test_visualize',
-                         mul_alexnet,
-                         epochs=[5, 5],
-                         lrs=[0.001, 0.0005],
-                         save_interval=1,
-                         trainable=train_part,
-                         DEVICE=DEVICE,
-                         batch_size=4000)
-framework.evaluate(alexnet, DEVICE=DEVICE)
+# framework.train_schedule('test_visualize',
+#                          net,
+#                          epochs=[5, 5],
+#                          lrs=[0.001, 0.0005],
+#                          save_interval=1,
+#                          trainable=train_part,
+#                          DEVICE=DEVICE,
+#                          batch_size=4000)
+framework.evaluate(net, DEVICE=DEVICE)

@@ -19,18 +19,18 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class XLoader():
 
-    def __init__(self, root='../data/cifar10', num_workers=0):
+    def __init__(self, root='../data/cifar10', num_workers=0, input_size=(227, 227)):
         self.root = root
         self.num_workers = num_workers
         train_transforms = transforms.Compose([
             transforms.RandomCrop(32, padding=4),  # 先四周填充0，在把图像随机裁剪成32*32
             transforms.RandomHorizontalFlip(),  # 图像一半的概率翻转，一半的概率不翻转
-            transforms.Resize((227, 227)),  # AlexNet的输入尺寸
+            transforms.Resize(input_size),  # 输入尺寸
             transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))  # R,G,B每层的归一化用到的均值和方差
         ])
         test_transforms = transforms.Compose([
-            transforms.Resize((227, 227)),  # AlexNet的输入尺寸
+            transforms.Resize(input_size),  # 输入尺寸
             transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))  # R,G,B每层的归一化用到的均值和方差
         ])
@@ -77,7 +77,7 @@ def train(model,
         print('Training epoch %s/%s, sum=%s, batch_size=%s, lr=%s ...' % (epoch, epochs + last_epoch, len(train_loader.dataset), batch_size, lr))
         weights = [pb.Percentage(), '(', pb.SimpleProgress(), ')', pb.Bar('>'), '[accuracy=%0.3f%%, loss=%.5s ]' % (0, 0), pb.ETA()]
         with pb.ProgressBar(max_value=math.ceil(len(train_loader.dataset) / batch_size), widgets=weights) as bar:
-            bar.update(0)
+            bar.currval = 0
             last_batch_accuracy = 0
             last_batch_loss = 0
             for inputs, labels in train_loader:
@@ -128,6 +128,7 @@ def test(model,
     print('Testing [%s], sum=%s, batch_size=%s ...' % (dataset_type, len(dataloader.dataset), batch_size))
     weights = [pb.Percentage(), '(', pb.SimpleProgress(), ')', pb.Bar('>'), '[accuracy=%0.3f%%]' % (0), pb.ETA()]
     with pb.ProgressBar(max_value=math.ceil(len(dataloader.dataset) / batch_size), widgets=weights) as bar:
+        bar.currval = 0
         for inputs, labels in dataloader:
             batch_count += 1
             inputs, labels = inputs.to(DEVICE), labels.to(DEVICE)
@@ -209,13 +210,24 @@ def evaluate(model, dataloader=None, batch_size=512, DEVICE=DEVICE):
     return train_accuracy, test_accuracy
 
 
-def visualize_feedback(feedback=None, feedback_file=None, tag='feedback', save_dir='./weights'):
+def visualize_feedback(feedback=None, feedback_file=None, feedback_file_list=[], tag='feedback', save_dir='./weights'):
     """可视化训练结果
     """
-    assert feedback is not None and isinstance(feedback, dict) or feedback_file is not None
+    assert feedback is not None and isinstance(feedback, dict) or feedback_file is not None or feedback_file_list != []
     if feedback_file is not None:
         with open(save_dir + '/' + feedback_file, 'r') as file:
             feedback = json.load(file)
+    feedback = {} if feedback is None else feedback
+    if feedback_file_list != []:
+        last_epoch = len(feedback.keys())
+        for file in feedback_file_list:
+            with open(save_dir + '/' + file, 'r') as file:
+                sub_feedback = json.load(file)
+            for k, v in sub_feedback.items():
+                feedback[last_epoch + 1] = v
+                last_epoch += 1
+    with open(save_dir + '/' + tag + '.json', 'w') as file:
+        json.dump(feedback, file)
     opoch_x = list(feedback.keys())
     accuracy = []
     loss = []
