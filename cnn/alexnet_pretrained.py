@@ -5,6 +5,7 @@ import torch
 from torchvision import models
 from torch import nn
 import framework
+import classify
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
 print('Working on', 'gpu' if torch.cuda.is_available() else 'cpu')
@@ -34,7 +35,7 @@ framework.try_load_weights(alexnet, 'big_batch.pkl')
 
 net = nn.DataParallel(alexnet, device_ids=[0, 1, 2, 3])
 train_part = alexnet.classifier
-# framework.train_schedule('test_visualize',
+# classify.train_schedule('test_visualize',
 #                          net,
 #                          epochs=[5, 5],
 #                          lrs=[0.001, 0.0005],
@@ -42,4 +43,4 @@ train_part = alexnet.classifier
 #                          trainable=train_part,
 #                          DEVICE=DEVICE,
 #                          batch_size=4000)
-framework.evaluate(net, DEVICE=DEVICE)
+classify.evaluate(net, DEVICE=DEVICE)
