@@ -35,7 +35,13 @@ def parallelize_model(model, device_ids):
     return nn.DataParallel(model, device_ids)
 
 
-def visualize_feedback(feedback=None, feedback_file=None, feedback_file_list=[], tag='feedback', save_dir='./weights'):
+def visualize_feedback(feedback=None,
+                       feedback_file=None,
+                       feedback_file_list=[],
+                       tag='feedback',
+                       save_dir='./weights',
+                       also_test=False
+                       ):
     """可视化训练结果
     """
     assert feedback is not None and isinstance(feedback, dict) or feedback_file is not None or feedback_file_list != []
@@ -54,7 +60,8 @@ def visualize_feedback(feedback=None, feedback_file=None, feedback_file_list=[],
     with open(save_dir + '/' + tag + '.json', 'w') as file:
         json.dump(feedback, file)
     opoch_x = list(feedback.keys())
-    accuracy = []
+    train_accuracy = []
+    test_accuracy = []
     loss = []
     lr = []
     batch_size = []
@@ -73,7 +80,9 @@ def visualize_feedback(feedback=None, feedback_file=None, feedback_file_list=[],
             last_lr = fd[2]
         else:
             group_indexes[-1][1] += 1
-        accuracy.append(fd[0])
+        train_accuracy.append(fd[0])
+        if also_test:
+            test_accuracy.append(fd[4])
         loss.append(fd[1])
         lr.append(fd[2])
         batch_size.append(fd[3])
@@ -82,9 +91,14 @@ def visualize_feedback(feedback=None, feedback_file=None, feedback_file_list=[],
         loss_y = np.array(loss)[group_index[0]:group_index[1]]
         ax1.plot(x, loss_y, label='loss(lr:%s)' % lr[group_index[-1] - 1], linewidth=2)
     x = np.array(opoch_x, dtype=np.int32)
-    accuracy_y = np.array(accuracy) * 100
+    train_accuracy_y = np.array(train_accuracy) * 100
     ax2 = ax1.twinx()
     ax2.set_ylabel('accuracy(%)', fontsize=20)
-    ax2.plot(x, accuracy_y, label="accuracy", color='green', linestyle='--', linewidth=2)
+    ax2.plot(x, train_accuracy_y, label="train accuracy", color='orange', linestyle='--', linewidth=2)
+    if also_test:
+        test_accuracy_y = np.array(test_accuracy) * 100
+        ax2.plot(x, test_accuracy_y, label="test accuracy", color='green', linestyle='--', linewidth=2)
     fig.legend(bbox_to_anchor=(0.85, 0.65))
-    plt.savefig('%s/%s.jpg' % (save_dir, tag))
+    save_path = '%s/%s.jpg' % (save_dir, tag)
+    plt.savefig(save_path)
+    print('Visualize result saved to `%s`' % save_path)
