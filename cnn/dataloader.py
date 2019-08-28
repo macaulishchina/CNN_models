@@ -61,6 +61,7 @@ class Cifar10Loader(Loader):
         if self.input_size is not None:
             test_composes.append(transforms.Resize(self.input_size))
         test_composes.append(transforms.ToTensor())
+        test_composes.append(transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)))
         return transforms.Compose(test_composes)
 
     def __generate_trainset__(self):
@@ -91,6 +92,7 @@ class Cifar100Loader(Loader):
         if self.input_size is not None:
             test_composes.append(transforms.Resize(self.input_size))
         test_composes.append(transforms.ToTensor())
+        test_composes.append(transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)))
         return transforms.Compose(test_composes)
 
     def __generate_trainset__(self):
