@@ -22,26 +22,27 @@ def train(model,
           save_dir='./weights',
           batch_size=128,
           last_epoch=0,
-          shuffle=True,
           print_feedback=True,
           tag=None,
           DEVICE=DEVICE,
           trainable=None,
+          also_test=False
           ):
     model.to(DEVICE)
-    model.train()
     loss_F = nn.CrossEntropyLoss() if loss_F is None else loss_F
     trainable = model if trainable is None else trainable
     optimizer = optim.Adam(trainable.parameters(), lr=lr) if optimizer is None else optimizer
     feedback = {}
-    last_epoch_accuracy = 0
+    last_epoch_train_accuracy = 0
+    last_epoch_test_accuracy = 0
     last_epoch_loss = 2 ** 32
     for epoch in range(epochs):
+        model.train()
         epoch_loss = 0
         epoch_accuracy = 0
         batch_count = 0
-        train_loader = dataLoader.get_train_loader(batch_size, shuffle)
-        epoch = epoch + last_epoch + 1
+        train_loader = dataLoader.get_train_loader(batch_size)
+        epoch += last_epoch + 1
         print('Training epoch %s/%s, sum=%s, batch_size=%s, lr=%s ...' % (epoch, epochs + last_epoch, len(train_loader.dataset), batch_size, lr))
         weights = [pb.Percentage(), '(', pb.SimpleProgress(), ')', pb.Bar('>'), '[accuracy=%0.3f%%, loss=%.5s ]' % (0, 0), pb.ETA()]
         with pb.ProgressBar(max_value=math.ceil(len(train_loader.dataset) / batch_size), widgets=weights) as bar:
@@ -63,17 +64,27 @@ def train(model,
                 mark_loss = 'ꜛ' if batch_loss.item() > last_batch_loss else 'ꜜ'
                 last_batch_accuracy = batch_accuracy
                 last_batch_loss = batch_loss.item()
-                weights[5] = '[accuracy=%0.3f%%%s, loss=%.5f%s]' % (batch_accuracy * 100, mark_accuracy, batch_loss.item(), mark_loss)
+                weights[5] = '[accuracy=%0.3f%%%s, loss=%.5f%s][%dMB]' \
+                    % (batch_accuracy * 100, mark_accuracy, batch_loss.item(), mark_loss, torch.cuda.memory_cached(DEVICE) // 1024 // 1024)
                 bar.update(batch_count)
         loss = epoch_loss / batch_count
-        accuracy = epoch_accuracy / batch_count
-        mark_accuracy = 'ꜛ' if accuracy > last_epoch_accuracy else 'ꜜ'
+        train_accuracy = epoch_accuracy / batch_count
+        mark_train_accuracy = 'ꜛ' if train_accuracy > last_epoch_train_accuracy else 'ꜜ'
         mark_loss = 'ꜛ' if loss > last_epoch_loss else 'ꜜ'
-        last_epoch_accuracy = accuracy
+        last_epoch_train_accuracy = train_accuracy
         last_epoch_loss = loss
-        feedback[epoch] = [accuracy, loss, lr, batch_size]
+        feedback[epoch] = [train_accuracy, loss, lr, batch_size]
+        test_info = ''
+        if also_test:
+            torch.cuda.empty_cache()
+            test_accuracy = test(model, dataLoader.get_test_loader(batch_size=batch_size, shuffle=False), batch_size=batch_size, DEVICE=DEVICE)
+            mark_test_accuracy = 'ꜛ' if test_accuracy > last_epoch_test_accuracy else 'ꜜ'
+            last_epoch_test_accuracy = test_accuracy
+            feedback[epoch].append(test_accuracy)
+            test_info = 'test accuracy = %0.3f%%%s,' % (test_accuracy * 100, mark_test_accuracy)
         if print_feedback:
-            print("Epoch train report: accuracy = %0.3f%%%s, loss = %.5f%s.\n" % (accuracy * 100, mark_accuracy, loss, mark_loss))
+            print("Epoch %s: train accuracy=%0.3f%%%s, %s loss=%.5f%s.\n"
+                  % (epoch, train_accuracy * 100, mark_train_accuracy, test_info, loss, mark_loss))
         if epoch % save_interval == 0:
             file_name = '[%sepoch%s]%s.pkl' % ('' if tag is None else '%s:' % tag, epoch, time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
             save_dict = model.module.state_dict() if isinstance(model, nn.DataParallel) else model.state_dict()
@@ -84,7 +95,7 @@ def train(model,
 
 def test(model,
          dataLoader,
-         dataset_type='',
+         dataset_type='testset',
          print_feedback=True,
          batch_size=128,
          DEVICE=DEVICE
@@ -95,19 +106,20 @@ def test(model,
     batch_count = 0
     print('Testing [%s], sum=%s, batch_size=%s ...' % (dataset_type, len(dataLoader.dataset), batch_size))
     weights = [pb.Percentage(), '(', pb.SimpleProgress(), ')', pb.Bar('>'), '[accuracy=%0.3f%%]' % (0), pb.ETA()]
-    with pb.ProgressBar(max_value=math.ceil(len(dataLoader.dataset) / batch_size), widgets=weights) as bar:
-        bar.currval = 0
-        for inputs, labels in dataLoader:
-            batch_count += 1
-            inputs, labels = inputs.to(DEVICE), labels.to(DEVICE)
-            outputs = model(inputs)
-            batch_accuracy = torch.max(outputs.data, 1)[1].eq(labels.data).cpu().sum().item() / labels.size(0)
-            epoch_accuracy += batch_accuracy
-            weights[5] = '[accuracy=%0.3f%%]' % (batch_accuracy * 100)
-            bar.update(batch_count)
-        accuracy = epoch_accuracy / batch_count
+    with torch.no_grad():
+        with pb.ProgressBar(max_value=math.ceil(len(dataLoader.dataset) / batch_size), widgets=weights) as bar:
+            bar.currval = 0
+            for inputs, labels in dataLoader:
+                batch_count += 1
+                inputs, labels = inputs.to(DEVICE), labels.to(DEVICE)
+                outputs = model(inputs)
+                batch_accuracy = torch.max(outputs.data, 1)[1].eq(labels.data).cpu().sum().item() / labels.size(0)
+                epoch_accuracy += batch_accuracy
+                weights[5] = '[accuracy=%0.3f%%][%dMB]' % (batch_accuracy * 100, torch.cuda.memory_cached(DEVICE) // 1024 // 1024)
+                bar.update(batch_count)
+            accuracy = epoch_accuracy / batch_count
     if print_feedback:
-        print("Test report: accuracy = %0.3f%%.\n" % (accuracy * 100))
+        print("Test report: accuracy = %0.3f%%." % (accuracy * 100))
     return accuracy
 
 
@@ -135,7 +147,8 @@ def train_schedule(tag,
                    save_interval=10,
                    save_feedback=True,
                    print_feedback=True,
-                   weights_dir='./weights'
+                   weights_dir='./weights',
+                   also_test=False
                    ):
     last_epoch = 0
     feedback = {}
@@ -143,7 +156,7 @@ def train_schedule(tag,
     assert len(epochs) == len(lrs)
     for idx, lr in enumerate(lrs):
         epoch, lr = int(epochs[idx]), float(lr)
-        model, fb = train(model, dataLoader,
+        model, fb = train(model, dataLoader, also_test=also_test,
                           tag=tag, batch_size=batch_size, DEVICE=DEVICE,
                           epochs=epoch, lr=lr, trainable=trainable,
                           save_interval=save_interval, optimizer=optimizer,
@@ -158,7 +171,7 @@ def train_schedule(tag,
 
     with open(feedback_file, 'w') as file:
         json.dump(feedback, file)
-    visualize_feedback(feedback=feedback, save_dir=weights_dir, tag=tag)
+    visualize_feedback(feedback=feedback, save_dir=weights_dir, tag=tag, also_test=also_test)
     return model, feedback
 
 
