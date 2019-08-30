@@ -51,9 +51,14 @@ def train(model,
             last_batch_loss = 0
             for inputs, labels in train_loader:
                 batch_count += 1
+                in_shape = inputs.size()
+                if len(in_shape) == 5:
+                    inputs = inputs.view(-1, in_shape[2], in_shape[3], in_shape[4])
                 inputs, labels = inputs.to(DEVICE), labels.to(DEVICE)
                 optimizer.zero_grad()
                 outputs = model(inputs)
+                if len(in_shape) == 5:
+                    outputs = outputs.view(in_shape[0], in_shape[1], -1).mean(1)
                 batch_loss = loss_F(outputs, labels)
                 batch_loss.backward()
                 optimizer.step()
@@ -64,7 +69,7 @@ def train(model,
                 mark_loss = 'ꜛ' if batch_loss.item() > last_batch_loss else 'ꜜ'
                 last_batch_accuracy = batch_accuracy
                 last_batch_loss = batch_loss.item()
-                weights[5] = '[accuracy=%0.3f%%%s, loss=%.5f%s][%dMB]' \
+                weights[5] = '[accuracy=%.3f%%%s, loss=%.5f%s][%dMB]' \
                     % (batch_accuracy * 100, mark_accuracy, batch_loss.item(), mark_loss, torch.cuda.memory_cached(DEVICE) // 1024 // 1024)
                 bar.update(batch_count)
         loss = epoch_loss / batch_count
