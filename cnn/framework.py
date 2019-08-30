@@ -14,8 +14,8 @@ def init_device(gpu='0'):
     return DEVICE, [int(id) for id in gpu.split(',')]
 
 
-def get_vgg16_model(weights_path=None, num_classes=1000):
-    features = models.vgg16(False).features
+def get_vgg16_model(weights_path=None, num_classes=1000, pretrained=False):
+    features = models.vgg16(pretrained).features
     vgg16 = models.VGG(features, num_classes=num_classes, init_weights=True)
     try_load_weights(vgg16, weights_path)
     return vgg16
