@@ -6,6 +6,32 @@ import numpy as np
 from torch import nn
 from torchvision import models
 from matplotlib import pyplot as plt
+from args import args
+import dataloader
+
+
+def get_dataloader_by_name(name):
+
+    num_workers = args.load_workers
+    input_size = (args.input_size, args.input_size)
+    enhancement = args.enhancement
+    tencrop = args.tencrop
+    if name == 'cifar10':
+        return dataloader.Cifar10Loader(num_workers=num_workers, input_size=input_size, enhancement=enhancement)
+    if name == 'cifar100':
+        return dataloader.Cifar100Loader(num_workers=num_workers, input_size=input_size, enhancement=enhancement)
+    if name == 'caltech256':
+        return dataloader.Caltech256Loader(num_workers=num_workers, input_size=input_size, enhancement=enhancement, tencrop=tencrop)
+
+
+def get_model_by_name(name, num_classes):
+    weights_name = args.weights_name
+    pretrained = args.pretrained
+    name_2_model = {
+        'vgg16': get_vgg16_model(weights_name, num_classes, pretrained),
+        'googLenet': None
+    }
+    return name_2_model[name]
 
 
 def init_device(gpu='0'):

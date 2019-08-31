@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import time
 import math
@@ -6,7 +7,9 @@ import torch
 from torch import nn
 from torch import optim
 import progressbar as pb
+import framework
 from framework import visualize_feedback
+from args import args
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -186,3 +189,29 @@ def evaluate(model, dataLoader, batch_size=512, DEVICE=DEVICE, contain_train=Fal
         test(model, trainset, 'trainset', batch_size=batch_size, DEVICE=DEVICE)
     testset = dataLoader.get_test_loader(batch_size=batch_size, shuffle=False)
     test(model, testset, 'testset', batch_size=batch_size, DEVICE=DEVICE)
+
+if __name__ == '__main__':
+    print('\nUsing model [%s] on dataset [%s].\n' % (args.model, args.dataset))
+    device, device_ids = framework.init_device(args.gpuids)
+    dataLoader = framework.get_dataloader_by_name(args.dataset)
+    num_classes = dataLoader.num_classes
+    if args.train:
+        net = framework.get_model_by_name(args.model, num_classes)
+        nets = framework.parallelize_model(net, device_ids)
+        train_part = net
+        train_schedule(
+            args.tag,
+            nets,
+            trainable=train_part,
+            also_test=args.test,
+            dataLoader=dataLoader,
+            epochs=args.epochs,
+            lrs=args.learning_rate,
+            save_interval=args.save_interval,
+            DEVICE=device,
+            batch_size=args.batchsize
+        )
+    if args.only_test:
+        net = framework.get_model_by_name(args.model, num_classes)
+        nets = framework.parallelize_model(net, device_ids)
+        evaluate(nets, DEVICE=device, batch_size=args.batchsize, dataLoader=dataLoader)
