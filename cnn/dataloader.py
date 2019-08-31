@@ -9,7 +9,8 @@ from torchvision.datasets import CIFAR10, CIFAR100
 
 class Loader():
 
-    def __init__(self, root, num_workers, input_size, download, enhancement):
+    def __init__(self, root, num_workers, num_classes, input_size, download, enhancement):
+        self.num_classes = num_classes
         self.root = root
         self.num_workers = num_workers
         self.input_size = input_size
@@ -45,7 +46,7 @@ class Loader():
 
 class Cifar10Loader(Loader):
     def __init__(self, download=True, root='../data/cifar10', num_workers=1, input_size=None, enhancement=True):
-        Loader.__init__(self, root, num_workers, input_size, download, enhancement)
+        Loader.__init__(self, root, num_workers, 10, input_size, download, enhancement)
 
     def __generate_train_transforms__(self):
         train_composes = []
@@ -76,7 +77,7 @@ class Cifar10Loader(Loader):
 
 class Cifar100Loader(Loader):
     def __init__(self, download=True, root='../data/cifar100', num_workers=1, input_size=None, enhancement=True):
-        Loader.__init__(self, root, num_workers, input_size, download, enhancement)
+        Loader.__init__(self, root, num_workers, 100, input_size, download, enhancement)
 
     def __generate_train_transforms__(self):
         train_composes = []
@@ -106,9 +107,9 @@ class Cifar100Loader(Loader):
 
 
 class ILSVRC2012Loader(Loader):
-    def __init__(self, root='../data/ILSVRC2012/data/Data/CLS-LOC', num_workers=8, input_size=(224, 224), enhancement=True, tencrop=False):
+    def __init__(self, root='../data/ILSVRC2012/data/Data/CLS-LOC', num_workers=4, input_size=(224, 224), enhancement=True, tencrop=False):
         self.tencrop = tencrop
-        Loader.__init__(self, root, num_workers, input_size, False, enhancement)
+        Loader.__init__(self, root, num_workers, 1000, input_size, False, enhancement)
 
     def __generate_train_transforms__(self):
         train_composes = []
@@ -120,12 +121,59 @@ class ILSVRC2012Loader(Loader):
             train_composes.append(transforms.ColorJitter(0.05, 0.05, 0.05, 0.05))
         else:
             train_composes.append(transforms.Resize(self.input_size))
-        train_composes.append(transforms.ToTensor())
-        train_composes.append(transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]))
         if self.tencrop:
             train_composes.append(transforms.Resize([int(s / 9 * 10) for s in self.input_size]))
             train_composes.append(transforms.TenCrop(self.input_size))
-            train_composes.append(transforms.Lambda(lambda crops: torch.stack([crop for crop in crops])))
+            train_composes.append(transforms.Lambda(lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])))
+            train_composes.append(transforms.Lambda(lambda crops: torch.stack(
+                [transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])(crop) for crop in crops]
+            )))
+        else:
+            train_composes.append(transforms.ToTensor())
+            train_composes.append(transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]))
+
+        return transforms.Compose(train_composes)
+
+    def __generate_test_transforms__(self):
+        test_composes = []
+        test_composes.append(transforms.Resize(self.input_size))
+        test_composes.append(transforms.ToTensor())
+        test_composes.append(transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]))
+        return transforms.Compose(test_composes)
+
+    def __generate_trainset__(self):
+        return ImageFolder('%s/train' % self.root, transform=self.train_transforms)
+
+    def __generate_testset__(self):
+        return ImageFolder('%s/val' % self.root, transform=self.test_transforms)
+
+
+class Caltech256Loader(Loader):
+    def __init__(self, root='../data/caltech256', num_workers=4, input_size=(224, 224), enhancement=True, tencrop=False):
+        self.tencrop = tencrop
+        Loader.__init__(self, root, num_workers, 257, input_size, False, enhancement)
+
+    def __generate_train_transforms__(self):
+        train_composes = []
+        if self.enhancement:
+            train_composes.append(transforms.RandomHorizontalFlip(p=0.5))
+            train_composes.append(transforms.Resize(min(self.input_size)))
+            train_composes.append(transforms.RandomCrop(self.input_size))
+            train_composes.append(transforms.RandomRotation(30))
+            train_composes.append(transforms.ColorJitter(0.05, 0.05, 0.05, 0.05))
+        else:
+            train_composes.append(transforms.Resize(self.input_size))
+        if self.tencrop:
+            train_composes.append(transforms.Resize([int(s / 9 * 10) for s in self.input_size]))
+            train_composes.append(transforms.TenCrop(self.input_size))
+            train_composes.append(transforms.Lambda(lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])))
+            train_composes.append(transforms.Lambda(lambda crops: torch.stack(
+                [transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])(crop) for crop in crops]
+            )))
+        else:
+            train_composes.append(transforms.ToTensor())
+            train_composes.append(transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]))
+
         return transforms.Compose(train_composes)
 
     def __generate_test_transforms__(self):
