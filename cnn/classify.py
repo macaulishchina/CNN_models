@@ -195,6 +195,7 @@ if __name__ == '__main__':
     device, device_ids = framework.init_device(args.gpuids)
     dataLoader = framework.get_dataloader_by_name(args.dataset)
     num_classes = dataLoader.num_classes
+    TAG = '%s_%s_on_%s_bs_%s' % (args.tag, args.model, args.dataset, args.batchsize)
     if args.train:
         net = framework.get_model_by_name(args.model, num_classes)
         nets = framework.parallelize_model(net, device_ids)

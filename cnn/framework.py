@@ -16,12 +16,13 @@ def get_dataloader_by_name(name):
     input_size = (args.input_size, args.input_size)
     enhancement = args.enhancement
     tencrop = args.tencrop
+    root = '/dev/shm' if args.share_memory else ('../data/%s' % name)
     if name == 'cifar10':
-        return dataloader.Cifar10Loader(num_workers=num_workers, input_size=input_size, enhancement=enhancement)
+        return dataloader.Cifar10Loader(args.download, root=root, num_workers=num_workers, input_size=input_size, enhancement=enhancement)
     if name == 'cifar100':
-        return dataloader.Cifar100Loader(num_workers=num_workers, input_size=input_size, enhancement=enhancement)
+        return dataloader.Cifar100Loader(args.download, root=root, num_workers=num_workers, input_size=input_size, enhancement=enhancement)
     if name == 'caltech256':
-        return dataloader.Caltech256Loader(num_workers=num_workers, input_size=input_size, enhancement=enhancement, tencrop=tencrop)
+        return dataloader.Caltech256Loader(root=root, num_workers=num_workers, input_size=input_size, enhancement=enhancement, tencrop=tencrop)
 
 
 def get_model_by_name(name, num_classes):
