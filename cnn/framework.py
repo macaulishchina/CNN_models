@@ -24,28 +24,25 @@ def get_dataloader_by_name(name):
     if name == 'caltech256':
         return dataloader.Caltech256Loader(root=root, num_workers=num_workers, input_size=input_size, enhancement=enhancement, tencrop=tencrop)
 
+s = models.detection.fasterrcnn_resnet50_fpn(False, pretrained_backbone=False)
+print(s)
+
 
 def get_model_by_name(name, num_classes):
     weights_name = args.weights_name
     pretrained = args.pretrained
-    name_2_model = {
-        'vgg16': get_vgg16_model(weights_name, num_classes, pretrained),
-        'googLenet': None
-    }
-    return name_2_model[name]
+    if name == 'vgg16':
+        return get_vgg16_model(weights_name, num_classes, pretrained)
+    if name == 'googLenet':
+        return get_googLenet_model(weights_name, num_classes)
+    if name == 'resnet50':
+        return get_resnet_50_model(weights_name, num_classes)
 
 
 def init_device(gpu='0'):
     DEVICE = torch.device("cuda:%s" % gpu if torch.cuda.is_available() else 'cpu')
     print('Working on', 'gpu %s' % gpu if torch.cuda.is_available() else 'cpu')
     return DEVICE, [int(id) for id in gpu.split(',')]
-
-
-def get_vgg16_model(weights_path=None, num_classes=1000, pretrained=False):
-    features = models.vgg16(pretrained).features
-    vgg16 = models.VGG(features, num_classes=num_classes, init_weights=True)
-    try_load_weights(vgg16, weights_path)
-    return vgg16
 
 
 def try_load_weights(model, file, weights_dir='./weights'):
@@ -56,6 +53,24 @@ def try_load_weights(model, file, weights_dir='./weights'):
     else:
         print('\nWeights file not found in path: `' + weights_path + '`.Use default weights instead.\n')
     return model
+
+
+def get_vgg16_model(weights_path=None, num_classes=1000, pretrained=False):
+    vgg16 = models.vgg16(pretrained, num_classes=num_classes, init_weights=True)
+    try_load_weights(vgg16, weights_path)
+    return vgg16
+
+
+def get_googLenet_model(weights_path=None, num_classes=1000):
+    googLenet = models.GoogLeNet(num_classes=num_classes, init_weights=True, aux_logits=False)
+    try_load_weights(googLenet, weights_path)
+    return googLenet
+
+
+def get_resnet_50_model(weights_path=None, num_classes=1000):
+    resnet50 = models.resnet50(False, num_classes=num_classes)
+    try_load_weights(resnet50, weights_path)
+    return resnet50
 
 
 def parallelize_model(model, device_ids):
@@ -116,16 +131,16 @@ def visualize_feedback(feedback=None,
     for group_index in group_indexes:
         x = np.array(opoch_x, dtype=np.int32)[group_index[0]:group_index[1]]
         loss_y = np.array(loss)[group_index[0]:group_index[1]]
-        ax1.plot(x, loss_y, label='loss(lr:%s)' % lr[group_index[-1] - 1], linewidth=2)
+        ax1.plot(x, loss_y, label='loss(lr:%s)' % lr[group_index[-1] - 1], linestyle='--', linewidth=2)
     x = np.array(opoch_x, dtype=np.int32)
     train_accuracy_y = np.array(train_accuracy) * 100
     ax2 = ax1.twinx()
     ax2.set_ylabel('accuracy(%)', fontsize=20)
-    ax2.plot(x, train_accuracy_y, label="train accuracy", color='orange', linestyle='--', linewidth=2)
+    ax2.plot(x, train_accuracy_y, label="train accuracy", color='orange', linewidth=2)
     if also_test:
         test_accuracy_y = np.array(test_accuracy) * 100
-        ax2.plot(x, test_accuracy_y, label="test accuracy", color='green', linestyle='--', linewidth=2)
-    fig.legend(bbox_to_anchor=(0.85, 0.65))
+        ax2.plot(x, test_accuracy_y, label="test accuracy", color='green', linewidth=2)
+    fig.legend(bbox_to_anchor=(0.90, 0.35))
     save_path = '%s/%s.jpg' % (save_dir, tag)
     plt.savefig(save_path)
     print('Visualize result saved to `%s`' % save_path)

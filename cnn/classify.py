@@ -44,7 +44,7 @@ def train(model,
         epoch_loss = 0
         epoch_accuracy = 0
         batch_count = 0
-        train_loader = dataLoader.get_train_loader(batch_size)
+        train_loader = dataLoader.get_train_loader(batch_size, True)
         epoch += last_epoch + 1
         print('Training epoch %s/%s, sum=%s, batch_size=%s, lr=%s ...' % (epoch, epochs + last_epoch, len(train_loader.dataset), batch_size, lr))
         weights = [pb.Percentage(), '(', pb.SimpleProgress(), ')', pb.Bar('>'), '[accuracy=%0.3f%%, loss=%.5s ]' % (0, 0), pb.ETA()]
@@ -201,7 +201,7 @@ if __name__ == '__main__':
         nets = framework.parallelize_model(net, device_ids)
         train_part = net
         train_schedule(
-            args.tag,
+            TAG,
             nets,
             trainable=train_part,
             also_test=args.test,

@@ -4,7 +4,7 @@ parser = argparse.ArgumentParser()
 
 # 默认参数列表
 parser.add_argument('-g', '--gpuids', default='0', type=str, help='指定cuda设备的id, 多个id用`,`分隔')
-parser.add_argument('-m', '--model', default='vgg16', choices=['alexnet', 'vgg16', 'googLenet'], type=str, help='选择baskbone网络')
+parser.add_argument('-m', '--model', default='vgg16', choices=['alexnet', 'vgg16', 'googLenet', 'resnet50'], type=str, help='选择baskbone网络')
 parser.add_argument('-d', '--dataset', default='cifar10', choices=['cifar10', 'cifar100', 'caltech101', 'caltech256'], type=str, help='输入数据集名称，默认为cifar10')
 parser.add_argument("-download", "--download", help="下载数据集", action="store_true")
 parser.add_argument('-b', '--batchsize', default=10, type=int, help='Batch Size 大小')
@@ -16,7 +16,7 @@ parser.add_argument('-wn', '--weights_name', default='?.pkl', type=str, help='�
 parser.add_argument("-train", "--train", help="训练", action="store_true")
 parser.add_argument("-test", "--test", help="测试", action="store_true")
 parser.add_argument("-only_test", "--only_test", help="只测试", action="store_true")
-parser.add_argument('-si', '--save_interval', default=999999999, type=int, help='保存间隔，单位epoch')
+parser.add_argument('-save', '--save_interval', default=999999999, type=int, help='保存间隔，单位epoch')
 parser.add_argument("-p", "--pretrained", help="使用pytorch提供的预训练权重", action="store_true")
 parser.add_argument("-en", "--enhancement", help="使用数据增强", action="store_true")
 parser.add_argument("-tc", "--tencrop", help="使用tencrop数据增强", action="store_true")
